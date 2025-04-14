@@ -1,6 +1,8 @@
 //! This module defines the [`Data`] struct. It is an internal implementation
 //! that should not be relied on by external code.
 
+pub mod ecosystem;
+
 /// Placeholder type for [`Data`] values where there is no metadata associated
 /// with the value.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -10,11 +12,11 @@ pub struct EmptyMeta;
 pub struct MetaId(pub usize);
 
 impl MetaId {
-  pub fn into_usize(self) -> usize {
+  pub const fn into_usize(self) -> usize {
     self.0
   }
 
-  pub fn from_usize(value: usize) -> Self {
+  pub const fn from_usize(value: usize) -> Self {
     Self(value)
   }
 }
@@ -30,6 +32,14 @@ impl<T, M> Rich<T, M> {
   /// Create a [`Rich`] value, by attaching metadata to a value.
   pub const fn new(value: T, meta: M) -> Self {
     Self { value, meta }
+  }
+
+  /// Map both the value and metadata to references
+  pub const fn as_ref<'rich>(&'rich self) -> Rich<&'rich T, &'rich M> {
+    Rich {
+      value: &self.value,
+      meta: &self.meta,
+    }
   }
 
   // /// Wrap a value inside a [`Rich`], using default metadata.
@@ -75,8 +85,15 @@ pub trait MetaType {
   type Meta;
 }
 
-#[expect(type_alias_bounds, reason = "even if it's not enforced yet (see <https://github.com/rust-lang/rust/issues/112792>) the type bound serves as documentation")]
+#[expect(
+  type_alias_bounds,
+  reason = "even if it's not enforced yet (see <https://github.com/rust-lang/rust/issues/112792>) the type bound serves as documentation"
+)]
 pub type Meta<T: MetaType> = <T as MetaType>::Meta;
+
+impl MetaType for () {
+  type Meta = ();
+}
 
 impl MetaType for bool {
   type Meta = ();
@@ -150,6 +167,31 @@ where
   pub fn deep_split_meta(self) -> Rich<T::Value, MetaNode<Meta<T::Value>>> {
     let rich = self.value.split_meta();
     Rich::new(rich.value, MetaNode::new(self.meta, rich.meta))
+  }
+}
+
+/// Represents a metadata node in a structured hierarchy
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WrappedMeta<N> {
+  /// Metadata id for this level of the hierarchy
+  id: MetaId,
+  /// Nested metadata
+  nested: N,
+}
+
+impl<N> WrappedMeta<N> {
+  /// Create a new [WrappedMeta].
+  pub const fn new(nested: N, id: MetaId) -> Self {
+    Self { nested, id }
+  }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BoolView<'rich>(Rich<&'rich bool, &'rich WrappedMeta<Meta<bool>>>);
+
+impl<'rich> BoolView<'rich> {
+  pub fn new(rich: Rich<&'rich bool, &'rich WrappedMeta<Meta<bool>>>) -> Self {
+    Self(rich)
   }
 }
 

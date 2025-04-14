@@ -1,9 +1,14 @@
 [package]
 name = "rich"
 version = "0.1.0"
-edition = {workspace = true}
-repository = {workspace = true}
-license = {workspace = true}
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
 description = "generic framework to attach metadata to Rust values"
 
 [dependencies]
+serde_json1 = { package = "serde_json", version = "1.0.140", optional = true }
+
+[features]
+default = []
+serde_json1 = ["dep:serde_json1"]

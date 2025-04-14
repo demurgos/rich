@@ -3,6 +3,12 @@
 version = 4
 
 [[package]]
+name = "drop_bomb"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9bda8e21c04aca2ae33ffc2fd8c23134f3cac46db123ba97bd9d3f3b8a4a85e1"
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -35,15 +41,30 @@ dependencies = [
 [[package]]
 name = "rich"
 version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
 
 [[package]]
 name = "rich_derive"
 version = "0.1.0"
 dependencies = [
+ "drop_bomb",
  "proc-macro2",
  "quote",
  "rich",
  "syn",
+]
+
+[[package]]
+name = "rich_serde"
+version = "0.1.0"
+dependencies = [
+ "rich",
+ "rich_derive",
+ "rich_serde",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -82,16 +103,6 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "serde_rich"
-version = "0.1.0"
-dependencies = [
- "rich",
- "rich_derive",
- "serde",
- "serde_json",
 ]
 
 [[package]]

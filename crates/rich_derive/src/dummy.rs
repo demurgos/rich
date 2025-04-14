@@ -15,12 +15,7 @@ pub fn wrap_in_const(extern_path: Option<&Path>, local_path: &Path, code: TokenS
 
   quote! {
       #[doc(hidden)]
-      #[allow(
-          non_upper_case_globals,
-          unused_attributes,
-          unused_qualifications,
-          clippy::absolute_paths,
-      )]
+      #[allow(non_upper_case_globals, unused_attributes, unused_qualifications, clippy::absolute_paths)]
       const _: () = {
           #use_rich
           #code

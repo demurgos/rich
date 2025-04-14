@@ -1,9 +1,9 @@
-use rich::{Meta, MetaId, MetaNode, MetaType, Rich, SplitMeta};
+mod ecosystem;
+
+use rich::{Meta, MetaId, MetaNode, MetaType, Rich, SplitMeta, WrappedMeta};
 use serde::de::{DeserializeSeed, Error, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::marker::PhantomData;
-use std::num::NonZeroUsize;
-
 
 // impl MergeMeta<()> for u32 {
 //   type Rich = Self;
@@ -53,15 +53,19 @@ pub struct RichScope {
 
 impl RichScope {
   pub fn new() -> Self {
-    Self {
-      next_id: usize::MIN,
-    }
+    Self { next_id: usize::MIN }
   }
 
   pub fn attach<T>(&mut self, value: T) -> Rich<T, MetaId> {
     let id = self.next_id;
     self.next_id = self.next_id.saturating_add(1);
     Rich::new(value, MetaId(id))
+  }
+
+  pub fn wrap<Value, Nested>(&mut self, rich: Rich<Value, Nested>) -> Rich<Value, WrappedMeta<Nested>> {
+    let id = self.next_id;
+    self.next_id = self.next_id.saturating_add(1);
+    Rich::new(rich.value, WrappedMeta::new(rich.meta, MetaId(id)))
   }
 }
 
@@ -146,7 +150,11 @@ impl SplitMeta for RichConfig {
     let num = self.num.deep_split_meta();
     let nested = self.nested.deep_split_meta();
     Rich::new(
-      Config { str: str.value, num: num.value, nested: nested.value },
+      Config {
+        str: str.value,
+        num: num.value,
+        nested: nested.value,
+      },
       MetaConfig {
         str: str.meta,
         num: num.meta,
@@ -556,10 +564,12 @@ impl<'de, 'arena> DeserializeSeed<'de> for RichConfigArena<'arena> {
 mod tests {
   use super::*;
   use rich::{Meta, MetaNode, Rich};
-
   use rich_derive::MetaType;
+  use ::serde_json1;
+  use rich::ecosystem::serde_json1::value::{ValueView, ValueVisit};
 
   #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, MetaType)]
+  #[meta(attr(derive(Default, Debug)))]
   struct Opaque;
 
   #[test]
@@ -574,7 +584,7 @@ mod tests {
       phantom: PhantomData,
     };
 
-    let mut de = serde_json::de::Deserializer::from_str(input);
+    let mut de = serde_json1::de::Deserializer::from_str(input);
     let rich: Rich<RichNested, MetaId> = seed.deserialize(&mut de).unwrap();
 
     dbg!(&rich);
@@ -601,7 +611,7 @@ mod tests {
       phantom: PhantomData,
     };
 
-    let mut de = serde_json::de::Deserializer::from_str(input);
+    let mut de = serde_json1::de::Deserializer::from_str(input);
     let rich: Rich<RichConfig, MetaId> = seed.deserialize(&mut de).unwrap();
 
     dbg!(&rich);
@@ -610,6 +620,8 @@ mod tests {
 
     let rich: Rich<Config, MetaNode<Meta<Config>>> = rich.deep_split_meta();
 
+    let foo: Meta<Opaque> = Meta::<Opaque>::default();
+
     // dbg!(&config);
     // dbg!(&meta);
     //
@@ -617,5 +629,62 @@ mod tests {
     // dbg!(&merged);
 
     // assert_eq!(config.nested.crab, true);
+  }
+
+  #[test]
+  fn rich_parse_serde_json_value() {
+    // language=json
+    let input = r#"{
+  "foo": true,
+  "message": "Hello, World!",
+  "list": [true, false]
+}"#;
+    let mut scope = RichScope::new();
+    let seed = RichScopeSerdeSeed::<serde_json1::Value> {
+      scope: &mut scope,
+      phantom: PhantomData,
+    };
+
+    let mut de = serde_json1::de::Deserializer::from_str(input);
+    let rich: Rich<serde_json1::Value, WrappedMeta<Option<rich::ecosystem::serde_json1::ValueMeta>>> =
+      seed.deserialize(&mut de).unwrap();
+
+    dbg!(&rich);
+
+    assert_eq!(
+      rich.value,
+      serde_json1::Value::Object({
+        let mut obj = serde_json1::value::Map::new();
+        obj.insert(String::from("foo"), serde_json1::Value::Bool(true));
+        obj.insert(String::from("message"), serde_json1::Value::String(String::from("Hello, World!")));
+        obj.insert(String::from("list"), serde_json1::Value::Array(vec![serde_json1::Value::Bool(true),serde_json1::Value::Bool(false) ]));
+        obj
+      })
+    );
+
+    let view = ValueView::new(rich.as_ref());
+    assert_eq!(view.meta(), MetaId::from_usize(9));
+
+    let ValueVisit::Object(view) = view.visit() else { panic!("expected view visit to return `Object` variant"); };
+
+    let foo: ValueView<'_> = view.get("foo").expect("`foo` view is available");
+
+    dbg!(foo.value());
+    assert_eq!(foo.meta(), MetaId::from_usize(1));
+
+    // match view.visit() {
+    //   ValueVisit::Bool(view) => {
+    //     dbg!(view);
+    //   }
+    //   ValueVisit::Array(view) => {
+    //     dbg!(view);
+    //   }
+    //   ValueVisit::Object(view) => {
+    //     dbg!(view);
+    //   }
+    // }
+
+    let result = add(2, 2);
+    assert_eq!(result, 4);
   }
 }
