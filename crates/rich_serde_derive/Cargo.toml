@@ -1,10 +1,10 @@
 [package]
-name = "rich_derive"
+name = "rich_serde_derive"
 version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
-description = "Implementation of #[derive(MetaType)]"
+description = "generic framework to attach metadata to Rust values"
 rust-version = "1.85.0"
 
 [features]

@@ -92,6 +92,17 @@ pub mod value {
     ) -> Self {
       Self(rich)
     }
+
+    pub fn get(&self, index: usize) -> Option<ValueView<'rich>> {
+      const DEFAULT: &WrappedMeta<Option<ValueMeta>> = &WrappedMeta::new(None, MetaId::from_usize(0));
+      let rich = &self.0;
+      let value = rich.value.get(index)?;
+      let meta = match rich.meta.get(index) {
+        Some(meta) => meta,
+        None => DEFAULT,
+      };
+      Some(ValueView::new(Rich::new(value, meta)))
+    }
   }
 
   #[derive(Debug, Clone, Copy)]

@@ -228,7 +228,7 @@ fn struct_from_ast<'a>(
 }
 
 fn fields_from_ast<'a>(
-  cx: &mut Context,
+  _cx: &mut Context,
   fields: &'a Punctuated<syn::Field, Token![,]>,
   // attrs: Option<&attr::Variant>,
   // container_default: &attr::Default,

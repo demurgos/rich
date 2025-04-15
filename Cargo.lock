@@ -40,31 +40,48 @@ dependencies = [
 
 [[package]]
 name = "rich"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "rich_derive"
-version = "0.1.0"
+version = "0.1.1"
+dependencies = [
+ "proc-macro2",
+ "rich_derive_impl",
+ "syn",
+]
+
+[[package]]
+name = "rich_derive_impl"
+version = "0.1.1"
 dependencies = [
  "drop_bomb",
  "proc-macro2",
  "quote",
- "rich",
  "syn",
 ]
 
 [[package]]
 name = "rich_serde"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "rich",
  "rich_derive",
  "rich_serde",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "rich_serde_derive"
+version = "0.1.1"
+dependencies = [
+ "proc-macro2",
+ "rich_derive_impl",
+ "syn",
 ]
 
 [[package]]

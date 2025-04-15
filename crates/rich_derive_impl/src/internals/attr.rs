@@ -19,7 +19,7 @@ pub struct ContainerMetaAttributes {
 
 impl ContainerAttributes {
   /// Extract out the `#[serde(...)]` attributes from an item.
-  pub fn from_ast(cx: &mut Context, item: &syn::DeriveInput) -> Self {
+  pub fn from_ast(_cx: &mut Context, item: &syn::DeriveInput) -> Self {
     let mut meta_attr: Vec<TokenStream> = Vec::new();
     let mut meta_name: Option<Ident> = None;
 

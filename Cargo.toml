@@ -8,13 +8,17 @@ members = [
 edition = "2024"
 repository = "https://github.com/demurgos/rich"
 license = "MIT"
+version = "0.1.1"
 
 [workspace.dependencies]
 drop_bomb = { version = "0.1.5", default-features = false }
 proc-macro2 = { version = "1.0.94", default-features = false }
 quote = { version = "1.0.40", default-features = false }
-rich = { path = "./crates/rich" }
+rich = { version = "0.1.1", path = "./crates/rich" }
 rich_derive = { path = "./crates/rich_derive" }
+rich_serde = { path = "./crates/rich_serde" }
+rich_derive_impl = { version = "0.1.1", path = "./crates/rich_derive_impl" }
+rich_serde_derive = { path = "./crates/rich_serde_derive" }
 serde = { version = "1.0.219", default-features = false }
 serde_json = { version = "1.0.140", default-features = false }
 syn = { version = "2.0.100", default-features = false }

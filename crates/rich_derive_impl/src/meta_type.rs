@@ -44,6 +44,7 @@ pub fn expand_derive_meta_type(input: &mut syn::DeriveInput) -> syn::Result<Toke
   Ok(dummy::wrap_in_const(None, &rich, impl_block))
 }
 
+#[allow(unused)]
 fn meta_enum(meta_ident: &Ident) -> TokenStream {
   quote! {
     #[derive(Default)]
@@ -66,6 +67,7 @@ fn meta_newtype(meta_ident: &Ident) -> TokenStream {
   }
 }
 
+#[allow(unused)]
 fn meta_tuple(meta_ident: &Ident) -> TokenStream {
   quote! {
     #[derive(Default)]

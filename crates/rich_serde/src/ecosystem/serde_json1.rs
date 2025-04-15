@@ -1,22 +1,23 @@
+use crate::RichDeserialize;
 use crate::RichScope;
 use crate::RichScopeSerdeSeed;
-use rich::Rich;
 use rich::{Meta, WrappedMeta};
-use serde::de::DeserializeSeed;
+use rich::{Rich};
 use serde::de::Error;
 use serde::de::MapAccess;
+use serde::de::SeqAccess;
 use serde::de::Visitor;
 use serde::Deserializer;
+use std::collections::BTreeMap;
 
 pub mod value {
   use super::*;
-  use serde::de::SeqAccess;
-  use std::collections::BTreeMap;
 
-  impl<'de, 'scope> DeserializeSeed<'de> for RichScopeSerdeSeed<'scope, serde_json1::Value> {
-    type Value = Rich<serde_json1::Value, WrappedMeta<Option<rich::ecosystem::serde_json1::ValueMeta>>>;
-
-    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+  impl<'de> RichDeserialize<'de> for serde_json1::Value {
+    fn rich_deserialize<'scope, D>(
+      scope: &'scope mut RichScope,
+      deserializer: D,
+    ) -> Result<Rich<Self, WrappedMeta<Self::Meta>>, D::Error>
     where
       D: Deserializer<'de>,
     {
@@ -112,9 +113,7 @@ pub mod value {
         }
       }
 
-      deserializer
-        .deserialize_any(RichVisitor(self.scope))
-        .map(|v| self.scope.wrap(v))
+      deserializer.deserialize_any(RichVisitor(scope)).map(|v| scope.wrap(v))
     }
   }
 }
