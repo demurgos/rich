@@ -1,4 +1,4 @@
-use crate::{Meta, MetaId, MetaType, WrappedMeta};
+use crate::{Meta, MetaId, StructuralProjection, WrappedMeta};
 
 pub mod value {
   use super::*;
@@ -24,7 +24,7 @@ pub mod value {
     Object(BTreeMap<String, WrappedMeta<Meta<::serde_json1::value::Value>>>),
   }
 
-  impl MetaType for ::serde_json1::value::Value {
+  impl StructuralProjection for ::serde_json1::value::Value {
     type Meta = Option<ValueMeta>;
   }
 

@@ -1,6 +1,6 @@
 mod ecosystem;
 
-use rich::{Meta, MetaId, MetaNode, MetaType, Rich, SplitMeta, WrappedMeta};
+use rich::{Meta, MetaId, MetaNode, StructuralProjection, Rich, SplitMeta, WrappedMeta};
 use serde::de::{DeserializeSeed, Error, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer};
 use std::marker::PhantomData;
@@ -12,7 +12,7 @@ pub use rich;
 /// deserialization metadata).
 trait RichDeserialize<'de>
 where
-  Self: MetaType,
+  Self: StructuralProjection,
 {
   fn rich_deserialize<'scope, D>(
     scope: &'scope mut RichScope,
@@ -113,7 +113,7 @@ struct RichNested {
   crab: Rich<bool, MetaId>,
 }
 
-impl MetaType for Nested {
+impl StructuralProjection for Nested {
   type Meta = MetaNested;
 }
 
