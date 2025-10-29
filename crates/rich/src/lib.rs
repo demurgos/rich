@@ -479,23 +479,21 @@ impl<T, M> Rich<T, M> {
 /// - Enums are tricky
 /// - Recursion is up to the author. Ideally a type would provide the choice
 ///   between single-level or recursive projection.
-pub trait StructuralProjection {
+pub trait StructuralProjection<TyProjector> {
   /// Type of extracted metadata.
   ///
   /// If `Self` is not a rich value, this should be `()` (or `EmptyMeta`?)
-  type Project<TyProjector>
-  where
-    TyProjector: Projector;
+  type Projection;
 }
 
-pub trait Projector {
-  type Apply<TyInput>;
+pub trait Projector<TyInput> {
+  type Output;
 }
 
 pub struct ConstProjector<T>(PhantomData<T>, core::convert::Infallible);
 
-impl<T> Projector for ConstProjector<T> {
-  type Apply<TyInput> = T;
+impl<TyInput, T> Projector<TyInput> for ConstProjector<T> {
+  type Output = T;
 }
 
 /// Helper type alias allowing to extract the `Meta` type out of a rich value.
@@ -503,148 +501,199 @@ impl<T> Projector for ConstProjector<T> {
   type_alias_bounds,
   reason = "even if it's not enforced yet (see <https://github.com/rust-lang/rust/issues/112792>) the type bound serves as documentation"
 )]
-pub type Meta<T: StructuralProjection, M> = <T as StructuralProjection>::Project<ConstProjector<M>>;
-
-impl StructuralProjection for () {
-  type Project<TyProjector> = ()
-  where
-    TyProjector: Projector;
-}
-
-impl<T0> StructuralProjection for (T0,) {
-  type Project<TyProjector> = (TyProjector::Apply<T0>,)
-  where
-    TyProjector: Projector;
-}
-
-impl<T0, T1> StructuralProjection for (T0, T1) {
-  type Project<TyProjector> = (TyProjector::Apply<T0>, TyProjector::Apply<T1>)
-  where
-    TyProjector: Projector;
-}
-
-impl<T0, T1, T2> StructuralProjection for (T0, T1, T2) {
-  type Project<TyProjector> = (TyProjector::Apply<T0>, TyProjector::Apply<T1>, TyProjector::Apply<T2>)
-  where
-    TyProjector: Projector;
-}
-
-impl StructuralProjection for bool {
-  type Project<TyProjector> = ()
-  where
-    TyProjector: Projector;
-}
-
-impl StructuralProjection for u32 {
-  type Project<TyProjector> = ()
-  where
-    TyProjector: Projector;
-}
-
-impl StructuralProjection for String {
-  type Project<TyProjector> = ()
-  where
-    TyProjector: Projector;
-}
-
-impl<T> StructuralProjection for Vec<T> {
-  type Project<TyProjector> = Vec<TyProjector::Apply<T>>
-  where
-    TyProjector: Projector;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MetaNode<N> {
-  id: MetaId,
-  nested: N,
-}
-
-impl<N> MetaNode<N> {
-  /// Create a [`Rich`] value, by attaching metadata to a value.
-  pub const fn new(id: MetaId, nested: N) -> Self {
-    Self { id, nested }
-  }
-}
-
-pub trait SplitMeta {
-  type Value: StructuralProjection;
-
-  fn split_meta(self) -> Rich<Self::Value, Meta<Self::Value, MetaId>>;
-}
-
-impl SplitMeta for bool {
-  type Value = Self;
-
-  fn split_meta(self) -> Rich<Self::Value, Meta<Self::Value, MetaId>> {
-    Rich::new(self, ())
-  }
-}
-
-impl SplitMeta for u32 {
-  type Value = Self;
-
-  fn split_meta(self) -> Rich<Self::Value, Meta<Self::Value, MetaId>> {
-    Rich::new(self, ())
-  }
-}
-
-impl SplitMeta for String {
-  type Value = Self;
-
-  fn split_meta(self) -> Rich<Self::Value, Meta<Self::Value, MetaId>> {
-    Rich::new(self, ())
-  }
-}
-
-pub trait IsA<T> {}
-
-impl<T> IsA<T> for T {}
-
-pub trait MergeMeta<TyMeta>
+pub type Meta<T, M>
 where
-  Self: StructuralProjection<Project<_>: IsA<TyMeta>>,
-  Self::Rich: SplitMeta<Value = Self>,
-{
-  type Rich;
+  T: StructuralProjection<ConstProjector<M>>,
+= <T as StructuralProjection<ConstProjector<M>>>::Projection;
 
-  fn merge_meta(self, meta: TyMeta) -> Self::Rich;
+impl<TyProjector> StructuralProjection<TyProjector> for () {
+  type Projection = ();
 }
 
-impl<T> Rich<T, MetaId>
+impl<TyProjector, T0> StructuralProjection<TyProjector> for (T0,)
 where
-  T: SplitMeta,
+  TyProjector: Projector<T0>,
 {
-  pub fn deep_split_meta(self) -> Rich<T::Value, MetaNode<Meta<T::Value>>> {
-    let rich = self.value.split_meta();
-    Rich::new(rich.value, MetaNode::new(self.meta, rich.meta))
-  }
+  type Projection = (<TyProjector as Projector<T0>>::Output,);
 }
 
-/// Represents a metadata node in a structured hierarchy
+impl<TyProjector, T0, T1> StructuralProjection<TyProjector> for (T0, T1)
+where
+  TyProjector: Projector<T0> + Projector<T1>,
+{
+  type Projection = (
+    <TyProjector as Projector<T0>>::Output,
+    <TyProjector as Projector<T1>>::Output,
+  );
+}
+
+impl<TyProjector, T0, T1, T2> StructuralProjection<TyProjector> for (T0, T1, T2)
+where
+  TyProjector: Projector<T0> + Projector<T1> + Projector<T2>,
+{
+  type Projection = (
+    <TyProjector as Projector<T0>>::Output,
+    <TyProjector as Projector<T1>>::Output,
+    <TyProjector as Projector<T2>>::Output,
+  );
+}
+
+impl<TyProjector> StructuralProjection<TyProjector> for bool {
+  type Projection = ();
+}
+
+impl<TyProjector> StructuralProjection<TyProjector> for u32 {
+  type Projection = ();
+}
+
+impl<TyProjector> StructuralProjection<TyProjector> for String {
+  type Projection = ();
+}
+
+impl<TyProjector, T> StructuralProjection<TyProjector> for Vec<T>
+where
+  TyProjector: Projector<T>,
+{
+  type Projection = Vec<<TyProjector as Projector<T>>::Output>;
+}
+
+/// Structure holding both overall metadata for a value, and for its child sub-components.
+///
+/// This is equivalent to [`Rich`], the only difference is semantics.
+/// - `meta` has the same meaning: it's the metadata for the main value
+/// - The second field has different semantics:
+///   - In [`Rich`], it's the value being described
+///   - In [`TreeMeta`], it's more metadata: for sub-components of the main value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct WrappedMeta<N> {
+pub struct TreeMeta<MainMeta, NestedMeta> {
   /// Metadata id for this level of the hierarchy
-  id: MetaId,
+  meta: MainMeta,
   /// Nested metadata
-  nested: N,
+  nested: NestedMeta,
 }
 
-impl<N> WrappedMeta<N> {
-  /// Create a new [WrappedMeta].
-  pub const fn new(nested: N, id: MetaId) -> Self {
-    Self { nested, id }
+impl<MainMeta, NestedMeta> TreeMeta<MainMeta, NestedMeta> {
+  /// Create a [`TreeMeta`] value, by linking metadata for the main value and for its sub-components.
+  pub const fn new(meta: MainMeta, nested: NestedMeta) -> Self {
+    Self { meta, nested }
   }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct BoolView<'rich>(Rich<&'rich bool, &'rich WrappedMeta<Meta<bool, MetaId>>>);
+/// Projector recursively converting each component type into a `TreeMeta` for holding metadata of type `M`.
+pub struct TreeMetaProjector<M>(PhantomData<M>, core::convert::Infallible);
 
-impl<'rich> BoolView<'rich> {
-  pub fn new(rich: Rich<&'rich bool, &'rich WrappedMeta<Meta<bool, MetaId>>>) -> Self {
-    Self(rich)
+impl<TyInput, M> Projector<TyInput> for TreeMetaProjector<M>
+where
+  TyInput: StructuralProjection<TreeMetaProjector<M>>,
+{
+  type Output = TreeMeta<M, <TyInput as StructuralProjection<TreeMetaProjector<M>>>::Projection>;
+}
+
+/// Convert a rich value using (potentially nested) internal metadata
+/// representation into a pair of pure data and pure external metadata.
+///
+/// The shape of the external metadata must be the same as the primary
+/// value, except the each child component should store metadata for the
+/// corresponding sub-component in the primary value. In other words, the
+/// metadata type must be a structural projection of the primary alue through
+/// the `TreeMetaProjector` operation.
+///
+/// For convenience, this trait can also be implemented on regular values that
+/// don't contain any metadata. In this case, the semantics should be to produce
+/// a unit `()` for the metadata.
+pub trait SplitMeta<M> {
+  type Value: StructuralProjection<TreeMetaProjector<M>>;
+
+  fn split_meta(self) -> Rich<Self::Value, <Self::Value as StructuralProjection<TreeMetaProjector<M>>>::Projection>;
+}
+
+impl<M> SplitMeta<M> for bool {
+  type Value = Self;
+
+  fn split_meta(self) -> Rich<Self::Value, ()> {
+    Rich::new(self, ())
   }
 }
 
+impl<M> SplitMeta<M> for u32 {
+  type Value = Self;
+
+  fn split_meta(self) -> Rich<Self::Value, ()> {
+    Rich::new(self, ())
+  }
+}
+
+// impl<M> SplitMeta<M> for String {
+//   type Value = Self;
+//
+//   fn split_meta(self) -> Rich<Self::Value, ()> {
+//     Rich::new(self, ())
+//   }
+// }
+//
+// pub trait IsA<T> {}
+//
+// impl<T> IsA<T> for T {}
+//
+// pub trait MergeMeta<TyMeta>
+// where
+//   Self: StructuralProjection<ConstProjector<MetaId>>,
+//   Self::Rich: SplitMeta<Value=Self>,
+// {
+//   type Rich;
+//
+//   fn merge_meta(self, meta: TyMeta) -> Self::Rich;
+// }
+//
+impl<T, M> Rich<T, M>
+where
+  T: SplitMeta<M>,
+{
+  pub fn deep_split_meta(
+    self,
+  ) -> Rich<T::Value, TreeMeta<M, <T::Value as StructuralProjection<TreeMetaProjector<M>>>::Projection>> {
+    let value_and_nested_meta = self.value.split_meta();
+    Rich::new(
+      value_and_nested_meta.value,
+      TreeMeta::new(self.meta, value_and_nested_meta.meta),
+    )
+  }
+}
+
+// impl<T, M> SplitMeta<M> for Rich<T, M>
+// where
+//   T: StructuralProjection<TreeMetaProjector<M>, Projection = ()>, // <Self::Value as StructuralProjection<TreeMetaProjector<M>>>::Projection>
+// {
+//   type Value = T;
+//
+//   fn split_meta(self) -> Rich<T, ()> {
+//     Rich::new(self.value, ())
+//   }
+// }
+
+// // /// Represents a metadata node in a structured hierarchy
+// // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// // pub struct WrappedMeta<N> {
+// //   id: MetaId,
+// //   nested: N,
+// // }
+// //
+// // impl<N> WrappedMeta<N> {
+// //   /// Create a new [WrappedMeta].
+// //   pub const fn new(nested: N, id: MetaId) -> Self {
+// //     Self { nested, id }
+// //   }
+// // }
+// //
+// // #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// // pub struct BoolView<'rich>(Rich<&'rich bool, &'rich WrappedMeta<Meta<bool, MetaId>>>);
+// //
+// // impl<'rich> BoolView<'rich> {
+// //   pub fn new(rich: Rich<&'rich bool, &'rich WrappedMeta<Meta<bool, MetaId>>>) -> Self {
+// //     Self(rich)
+// //   }
+// // }
+//
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -661,17 +710,19 @@ mod tests {
     price: TyPrice,
   }
 
-  impl StructuralProjection for Mascot {
-    type Project<TyProjector> = MascotStructure<TyProjector::Apply<bool>, TyProjector::Apply<u32>>
-    where
-      TyProjector: Projector;
+  impl<TyProjector> StructuralProjection<TyProjector> for Mascot
+  where
+    TyProjector: Projector<bool> + Projector<u32>,
+  {
+    type Projection =
+      MascotStructure<<TyProjector as Projector<bool>>::Output, <TyProjector as Projector<u32>>::Output>;
   }
 
-  #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-  struct MascotMeta {
-    is_crab: MetaNode<Meta<bool, MetaId>>,
-    price: MetaNode<Meta<u32, MetaId>>,
-  }
+  // #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+  // struct MascotMeta {
+  //   is_crab: TreeMeta<MetaId, Meta<bool, MetaId>>,
+  //   price: TreeMeta<MetaId, Meta<u32, MetaId>>,
+  // }
 
   #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
   struct RichMascot {
@@ -679,18 +730,21 @@ mod tests {
     price: Rich<u32, MetaId>,
   }
 
-  impl SplitMeta for RichMascot {
+  impl SplitMeta<MetaId> for RichMascot {
     type Value = Mascot;
 
-    fn split_meta(self) -> Rich<Self::Value, Meta<Self::Value>> {
-      let is_crab = self.is_crab.deep_split_meta();
-      let price = self.price.deep_split_meta();
+    fn split_meta(
+      self,
+    ) -> Rich<Self::Value, MascotStructure<TreeMeta<MetaId, ()>, TreeMeta<MetaId, ()>>>
+    {
+      let is_crab: Rich<bool, _> = self.is_crab.deep_split_meta();
+      let price: Rich<u32, _> = self.price.deep_split_meta();
       Rich::new(
         Mascot {
           is_crab: is_crab.value,
           price: price.value,
         },
-        MascotMeta {
+        MascotStructure {
           is_crab: is_crab.meta,
           price: price.meta,
         },
@@ -715,11 +769,11 @@ mod tests {
         is_crab: true,
         price: 42,
       },
-      MetaNode::new(
+      TreeMeta::new(
         MetaId(3),
-        MascotMeta {
-          is_crab: MetaNode::new(MetaId(1), ()),
-          price: MetaNode::new(MetaId(2), ()),
+        MascotStructure {
+          is_crab: TreeMeta::new(MetaId(1), ()),
+          price: TreeMeta::new(MetaId(2), ()),
         },
       ),
     );
