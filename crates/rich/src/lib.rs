@@ -22,7 +22,7 @@ pub struct EmptyMeta;
 /// Internally, this is represented using a `usize`. The value is unique within
 /// a scope that must be documented by functions issuing these metadata ids.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct MetaId(pub usize);
+pub struct MetaId(usize);
 
 impl MetaId {
   /// Wrap the provided `usize` into a `MetaId`.
@@ -124,7 +124,7 @@ impl<T, M> Rich<T, M> {
   // }
 }
 
-/// Trait representing structural projection support.
+/// Trait marking types supporting structural projection.
 ///
 /// Structural projection is type-level operation creating a new type by mapping
 /// the type of each "component" forming the structure of the original type.
@@ -221,7 +221,7 @@ impl<T, M> Rich<T, M> {
 /// let base: Vec2D<u64> = Vec2D { x: 3, y: 6 };
 ///
 /// fn is_even(x: u64) -> bool {
-///  x.is_multiple_of(2)
+///   x.is_multiple_of(2)
 /// }
 ///
 /// let mapped: Vec2D<bool> = base.map(is_even);
@@ -315,7 +315,7 @@ impl<T, M> Rich<T, M> {
 /// ```
 ///
 /// In short, structural projection allows to abstract type-level
-/// transformations applied to each sub-type.
+/// transformations applied to each sub-component type.
 ///
 /// The fact that the transformation
 /// is applied to the type of each sub-component is why it is structural. The
@@ -326,14 +326,14 @@ impl<T, M> Rich<T, M> {
 /// ## Defining an operator
 ///
 /// With value mapping, there were two parts: the `map` method driving the
-/// transformation and the `double` or `is_event` functions defining the
+/// transformation and the `double` or `is_even` functions defining the
 /// transformation to apply.
 ///
 /// For structural projection, we also have these two parts. Let's start with
 /// defining the operator. This crate calls it a [`Projector`]. Its role is to
 /// take an input _type_ and turn it into an output _type_.
 ///
-/// In Rust, signature of a type-level functions is represented as a trait with
+/// In Rust, the signature of a type-level functions is represented as a trait with
 /// an associated type. For our use-case, the associated type should accept a
 /// generic type parameter acting as the input and turn it into an output type.
 /// The output type is controlled by the concrete projector implementation.
@@ -413,7 +413,7 @@ impl<T, M> Rich<T, M> {
 ///   type Project<TyProjector> = WeatherMeasurementStructure<
 ///     TyProjector::Apply<Temperature>,
 ///     TyProjector::Apply<Pressure>
-///   >;
+///   >
 ///     where TyProjector: Projector;
 /// }
 /// ```
@@ -435,7 +435,7 @@ impl<T, M> Rich<T, M> {
 ///
 /// ## Extensions
 ///
-/// With all the scaffolding built in this example, we don't event need the
+/// With all the scaffolding built in this example, we don't even need the
 /// original type anymore. Using `WeatherMeasurementStructure`, we can define
 /// the original type as `type WeatherMeasurement = WeatherMeasurementStructure<Temperature, Pressure>;`.
 ///
@@ -449,8 +449,8 @@ impl<T, M> Rich<T, M> {
 /// functions are pure, this means that the output type is also constant. This
 /// restricted form of structural projection means that the output type of the
 /// projection no longer needs one generic type parameter per field, instead
-/// a single field is enough. Another important property is that it enables
-/// recursive projection with much issues.
+/// a single field is enough. Another important property is that it makes it
+/// simpler to perform recursive projection.
 ///
 /// In practice, it means that you can replace the types of all the fields
 /// inside a struct by a single type. For rich, this is the _metadata_ type
@@ -607,6 +607,35 @@ pub trait SplitMeta<M> {
   fn split_meta(self) -> Rich<Self::Value, <Self::Value as StructuralProjection<TreeMetaProjector<M>>>::Projection>;
 }
 
+/// Wrapper for structural projection primitives used inside rich values with
+/// internal metadata.
+///
+/// Structural projection primitives are types which always produce `()` when
+/// structurally projected (no inner structure).
+///
+/// In practice, those types could implement `SplitMeta` directly. This wrapper
+/// is present for some uniform handling without having to impl the trait
+/// manually. It may not be needed in practice (it will be removed then).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct RichPrimitive<T>(pub T);
+
+impl<T> RichPrimitive<T> {
+  pub fn as_ref(&self) -> &T {
+    &self.0
+  }
+}
+
+impl<T, M> SplitMeta<M> for RichPrimitive<T>
+where
+  T: StructuralProjection<TreeMetaProjector<M>, Projection = ()>,
+{
+  type Value = T;
+
+  fn split_meta(self) -> Rich<Self::Value, ()> {
+    Rich::new(self.0, ())
+  }
+}
+
 impl<M> SplitMeta<M> for bool {
   type Value = Self;
 
@@ -649,10 +678,12 @@ impl<T, M> Rich<T, M>
 where
   T: SplitMeta<M>,
 {
+  /// Convert a rich holding a `T` with internal metadata into an external
+  /// metadata representation with pure data and pure metadata.
   pub fn deep_split_meta(
     self,
   ) -> Rich<T::Value, TreeMeta<M, <T::Value as StructuralProjection<TreeMetaProjector<M>>>::Projection>> {
-    let value_and_nested_meta = self.value.split_meta();
+    let value_and_nested_meta: Rich<T::Value, _> = self.value.split_meta();
     Rich::new(
       value_and_nested_meta.value,
       TreeMeta::new(self.meta, value_and_nested_meta.meta),
@@ -733,10 +764,7 @@ mod tests {
   impl SplitMeta<MetaId> for RichMascot {
     type Value = Mascot;
 
-    fn split_meta(
-      self,
-    ) -> Rich<Self::Value, MascotStructure<TreeMeta<MetaId, ()>, TreeMeta<MetaId, ()>>>
-    {
+    fn split_meta(self) -> Rich<Self::Value, MascotStructure<TreeMeta<MetaId, ()>, TreeMeta<MetaId, ()>>> {
       let is_crab: Rich<bool, _> = self.is_crab.deep_split_meta();
       let price: Rich<u32, _> = self.price.deep_split_meta();
       Rich::new(
