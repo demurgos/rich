@@ -1,0 +1,13 @@
+[package]
+name = "styp"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+license = { workspace = true }
+description = "Structural typing for Rust"
+
+[dependencies]
+# empty
+
+[features]
+default = []

@@ -4,10 +4,12 @@ version = { workspace = true }
 edition = { workspace = true }
 repository = { workspace = true }
 license = { workspace = true }
-description = "generic framework to attach metadata to Rust values"
+description = "Helper library for metadata attached to Rust values"
 
 [dependencies]
+# Ecossytem integration deliberately avoids `workspace = true`
 serde_json1 = { package = "serde_json", version = "1.0.140", optional = true }
+styp = { workspace = true }
 
 [features]
 default = []

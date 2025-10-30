@@ -15,10 +15,11 @@ drop_bomb = { version = "0.1.5", default-features = false }
 proc-macro2 = { version = "1.0.94", default-features = false }
 quote = { version = "1.0.40", default-features = false }
 rich = { version = "0.1.1", path = "./crates/rich" }
+styp = { version = "0.1.1", path = "./crates/styp" }
 rich_derive = { path = "./crates/rich_derive" }
 rich_serde = { path = "./crates/rich_serde" }
-rich_derive_impl = { version = "0.1.1", path = "./crates/rich_derive_impl" }
-rich_serde_derive = { path = "./crates/rich_serde_derive" }
+rich_derive_impl = { version = "0.1.1", path = "./crates/rich_derive_impl", default-features = false }
+rich_serde_derive = { path = "./crates/rich_serde_derive", default-features = false }
 serde = { version = "1.0.219", default-features = false }
-serde_json = { version = "1.0.140", default-features = false }
+serde_json1 = { package = "serde_json", version = "1.0.140", default-features = false }
 syn = { version = "2.0.100", default-features = false }
